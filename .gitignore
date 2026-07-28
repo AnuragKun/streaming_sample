@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env 
+node_modules/
+dist/
+.venv/ 
+*.egg-info/ 
+alembic/versions/*.pyc
+.idea/
+uvicorn.log
+*.log
