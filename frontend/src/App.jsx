@@ -19,7 +19,12 @@ function App() {
     try {
       setLoading(true);
       const data = await getVideos();
-      setVideos(data);
+      if (Array.isArray(data)) {
+        setVideos(data);
+      } else {
+        console.error('API did not return an array. Make sure the Render API Rewrite rule is configured correctly. Received:', data);
+        setVideos([]); // Fallback to empty array
+      }
     } catch (error) {
       console.error('Failed to fetch videos:', error);
     } finally {
@@ -34,7 +39,7 @@ function App() {
 
   // Polling for processing videos
   useEffect(() => {
-    const hasProcessingVideos = videos.some(
+    const hasProcessingVideos = Array.isArray(videos) && videos.some(
       (v) => v.status === 'pending' || v.status === 'processing'
     );
     
