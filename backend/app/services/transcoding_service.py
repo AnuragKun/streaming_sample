@@ -57,14 +57,13 @@ class TranscodingService:
     def __init__(self, storage_service: StorageService) -> None:
         self._storage = storage_service
 
-    async def transcode_to_hls(self, video_id: str, file_data: bytes, filename: str) -> str:
+    async def transcode_to_hls(self, video_id: str, file_path: str, filename: str) -> str:
         temp_dir = tempfile.mkdtemp()
         temp_path = Path(temp_dir)
+        input_file = Path(file_path)
 
         try:
-            input_file = temp_path / filename
-            input_file.write_bytes(file_data)
-            logger.info("Saved uploaded file to temp: %s (%d bytes)", input_file, len(file_data))
+            logger.info("Using temp file for transcoding: %s", input_file)
 
             output_dir = temp_path / "hls"
             output_dir.mkdir()
@@ -79,7 +78,9 @@ class TranscodingService:
 
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
-            logger.info("Deleted temp dir: %s", temp_dir)
+            if input_file.exists():
+                input_file.unlink()
+            logger.info("Deleted temp dir %s and input file %s", temp_dir, input_file)
 
 
     async def _transcode_rendition(self, input_file: Path, output_dir: Path, rendition: dict) -> None:
@@ -99,7 +100,7 @@ class TranscodingService:
 
             "-c:v", "libx264",
             "-preset", "ultrafast",
-            "-threads", "0",
+            "-threads", "2",
             "-b:v", rendition["v_bitrate"],
             "-maxrate", rendition["maxrate"],
             "-bufsize", rendition["bufsize"],
@@ -176,14 +177,12 @@ class TranscodingService:
             relative_path = file_path.relative_to(output_dir)
             r2_key = f"{r2_prefix}/{relative_path.as_posix()}"
 
-            file_bytes = file_path.read_bytes()
-            file_obj = io.BytesIO(file_bytes)
-
-            url = self._storage.upload_file(
-                file_obj = file_obj,
-                key=r2_key,
-                content_type = content_type,
-            )
+            with file_path.open("rb") as file_obj:
+                url = self._storage.upload_file(
+                    file_obj = file_obj,
+                    key=r2_key,
+                    content_type = content_type,
+                )
 
             if file_path.name == "master.m3u8":
                 master_url = url

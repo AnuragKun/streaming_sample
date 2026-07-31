@@ -36,7 +36,7 @@ class VideoService:
 
 
     # CREATE
-    async def create_video(self, title: str, file_data: bytes, filename: str) -> Video:
+    async def create_video(self, title: str, filename: str) -> Video:
         video = Video(title = title)
         self._db.add(video)
 
@@ -46,7 +46,7 @@ class VideoService:
         logger.info(f"Created video record : id={video.id}, title={video.title}")
         return video
 
-    async def process_video(self, video_id: str, file_data: bytes, filename: str) -> None:
+    async def process_video(self, video_id: str, file_path: str, filename: str) -> None:
         from app.db.session import AsyncSessionLocal
         
         async with AsyncSessionLocal() as session:
@@ -64,7 +64,7 @@ class VideoService:
 
                 hls_url = await self._transcoder.transcode_to_hls(
                     video_id=video_id,
-                    file_data=file_data,
+                    file_path=file_path,
                     filename=filename,
                 )
                 video.hls_url = hls_url

@@ -1,5 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, UploadFile, status
 from starlette.status import HTTP_201_CREATED
+import os
+import shutil
+import tempfile
 
 from app.dependencies import get_video_service
 from app.schemas.video import VideoRename,VideoResponse
@@ -39,17 +42,24 @@ async def upload_video(
             detail=f"The file type is not supported. Only Allowed: {allowed_types}",
         )
 
-    file_data = await file.read()
-    logger.info("Received upload: title='%s', filename='%s', size=%d bytes", title, file.filename, len(file_data))
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1])
+    try:
+        shutil.copyfileobj(file.file, temp_file)
+    finally:
+        temp_file.close()
+
+    file_size = os.path.getsize(temp_file.name)
+    logger.info("Received upload: title='%s', filename='%s', saved to temp file (size=%d bytes)", title, file.filename, file_size)
+
     video = await service.create_video(
         title=title,
-        file_data=file_data,
         filename=file.filename,
     )
+    
     background_tasks.add_task(
         service.process_video,
         video_id=video.id,
-        file_data=file_data,
+        file_path=temp_file.name,
         filename=file.filename
     )
     return VideoResponse.model_validate(video)
